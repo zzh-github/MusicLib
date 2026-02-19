@@ -1,0 +1,1211 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MusicLib - 曲谱收集与阅览</title>
+  <style>
+    :root {
+      --bg: #f4f1e7;
+      --panel: #fffdf7;
+      --ink: #202124;
+      --line: #d8d2c3;
+      --accent: #15616d;
+      --danger: #b7410e;
+      --muted: #6a6a6a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 20% 10%, #efe8d8 0%, var(--bg) 45%, #e8dfcc 100%);
+      min-height: 100vh;
+    }
+    .wrap {
+      width: min(1100px, 95vw);
+      margin: 24px auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    h1 { margin: 0 0 14px; font-size: 1.4rem; }
+    h2 { margin: 0 0 10px; font-size: 1.1rem; }
+    label { display: block; margin-top: 8px; font-size: 0.9rem; }
+    input, button {
+      width: 100%;
+      margin-top: 6px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font: inherit;
+      background: #fff;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .light {
+      background: #f0ece2;
+      color: #333;
+      border: 1px solid var(--line);
+    }
+    .search { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .search button { width: auto; padding: 10px 16px; margin-top: 6px; }
+    ul { list-style: none; padding: 0; margin: 10px 0 0; max-height: 64vh; overflow: auto; }
+    li {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fff;
+      cursor: pointer;
+    }
+    li.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .meta { font-size: 0.82rem; color: #555; margin-top: 6px; }
+    .actions, .pager { display: flex; gap: 8px; margin-top: 8px; }
+    .actions button, .pager button { margin-top: 0; }
+    .danger { background: var(--danger); }
+    .empty { color: #666; margin-top: 20px; }
+    .pageInfo {
+      align-self: center;
+      font-size: 0.9rem;
+      color: #444;
+      padding: 0 8px;
+    }
+    .picker {
+      margin-top: 8px;
+      border: 2px dashed #b7ad95;
+      border-radius: 10px;
+      padding: 12px;
+      background: #fdfaf2;
+    }
+    .picker.active {
+      border-color: var(--accent);
+      background: #ecf7f8;
+    }
+    .pickerTitle {
+      font-size: 0.92rem;
+      color: #3d3d3d;
+      margin-bottom: 8px;
+    }
+    .hint {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .fileList {
+      margin-top: 8px;
+      max-height: 180px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 6px;
+    }
+    .fileRow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #ece6d8;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      cursor: move;
+      background: #fff;
+    }
+    .fileRow:last-child { margin-bottom: 0; }
+    .fileRow.dragOver {
+      border-color: var(--accent);
+      background: #eef8fa;
+    }
+    .rowName {
+      font-size: 0.88rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mini {
+      width: auto;
+      margin-top: 0;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      background: #f2eee5;
+      color: #333;
+      border: 1px solid var(--line);
+    }
+    .inlineBtns {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .inlineBtns button { margin-top: 0; }
+    .viewerCard {
+      position: sticky;
+      top: 16px;
+      height: calc(100vh - 32px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #viewerBox {
+      flex: 1;
+      min-height: 0;
+    }
+    .viewerShell {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .viewerToolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .toolbarMain, .toolbarAux {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .toolbarMain button, .toolbarAux button {
+      width: auto;
+      margin-top: 0;
+      padding: 8px 10px;
+      font-size: 0.88rem;
+      border-radius: 8px;
+    }
+    .viewerStage {
+      flex: 1;
+      min-height: 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .viewerStage iframe,
+    .viewerStage img {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+      object-fit: contain;
+      object-position: center;
+    }
+    .viewerStage img.clickable {
+      cursor: zoom-in;
+    }
+    .kbdHint {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .fsOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 12, 15, 0.96);
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      color: #f2f2f2;
+    }
+    .fsOverlay.open {
+      display: flex;
+    }
+    .fsToolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(0, 0, 0, 0.25);
+    }
+    .fsLeft, .fsRight {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .fsToolbar button {
+      width: auto;
+      margin-top: 0;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 0;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+    .fsToolbar button:hover {
+      background: rgba(255, 255, 255, 0.24);
+    }
+    .fsToolbar button.active {
+      background: #2f8e7d;
+    }
+    .fsSpeedWrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 4px;
+    }
+    .fsSpeedLabel {
+      font-size: 0.82rem;
+      color: #ddd;
+      white-space: nowrap;
+    }
+    .fsSpeedRange {
+      width: 110px;
+      margin: 0;
+      padding: 0;
+      accent-color: #2f8e7d;
+    }
+    .fsMeta {
+      font-size: 0.9rem;
+      color: #e2e2e2;
+    }
+    .fsStage {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      overflow-x: hidden;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      cursor: grab;
+      user-select: none;
+    }
+    .fsStage.dragging {
+      cursor: grabbing;
+    }
+    .fsImage {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: none;
+      max-height: none;
+      width: auto;
+      height: auto;
+      transform-origin: center center;
+      will-change: transform;
+      pointer-events: none;
+    }
+    .fsStrip {
+      width: 100%;
+      min-height: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      background: #0d0f13;
+      margin: 0 auto;
+    }
+    .fsStrip.active {
+      display: flex;
+    }
+    .fsStrip img {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: #111;
+      pointer-events: none;
+      user-select: none;
+    }
+    .fsHint {
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      color: #d5d5d5;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.2);
+    }
+    @media (max-width: 860px) {
+      .wrap { grid-template-columns: 1fr; }
+      .viewerCard {
+        position: static;
+        height: auto;
+      }
+      #viewerBox {
+        min-height: 55vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>MusicLib</h1>
+      <h2>上传曲谱</h2>
+      <form id="uploadForm">
+        <label>标题<input name="title" required /></label>
+        <label>作曲家<input name="composer" /></label>
+        <label>标签（逗号分隔）<input name="tags" placeholder="古典,钢琴" /></label>
+
+        <div class="picker" id="dropzone">
+          <div class="pickerTitle">拖拽文件到这里，或点击“选择文件”</div>
+          <div class="inlineBtns">
+            <button class="light" id="pickBtn" type="button">选择文件</button>
+            <button class="light" id="clearBtn" type="button">清空</button>
+          </div>
+          <input id="filePicker" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple hidden />
+          <div class="hint">图片可拖拽排序后上传。规则：PDF 单文件；或图片批量。</div>
+          <div class="fileList" id="fileList"></div>
+        </div>
+
+        <button type="submit">上传</button>
+      </form>
+
+      <h2 style="margin-top:18px;">检索</h2>
+      <div class="search">
+        <input id="query" placeholder="按标题/作曲家搜索" />
+        <button id="searchBtn" type="button">查找</button>
+      </div>
+      <ul id="scoreList"></ul>
+    </section>
+
+    <section class="card viewerCard">
+      <h2 id="viewerTitle">请选择曲谱</h2>
+      <div id="viewerBox"><p class="empty">上传或点击左侧曲谱开始阅览。</p></div>
+    </section>
+  </main>
+  <div class="fsOverlay" id="fsOverlay">
+    <div class="fsToolbar">
+      <div class="fsLeft">
+        <button type="button" id="fsPrevBtn">上一页</button>
+        <button type="button" id="fsNextBtn">下一页</button>
+        <div class="fsMeta" id="fsPageInfo">第 1 / 1 页</div>
+      </div>
+      <div class="fsRight">
+        <button type="button" id="fsScaleOutBtn">缩小</button>
+        <button type="button" id="fsScaleInBtn">放大</button>
+        <div class="fsMeta" id="fsZoomInfo">100%</div>
+        <button type="button" id="fsAutoBtn">自动滚动: 关</button>
+        <div class="fsSpeedWrap">
+          <span class="fsSpeedLabel" id="fsSpeedLabel">速度: 中</span>
+          <input id="fsSpeedRange" class="fsSpeedRange" type="range" min="1" max="100" value="50" />
+        </div>
+        <button type="button" id="fsResetBtn">适配屏幕</button>
+        <button type="button" id="fsExitBtn">退出全屏</button>
+      </div>
+    </div>
+    <div class="fsStage" id="fsStage">
+      <img id="fsImage" class="fsImage" alt="score fullscreen" />
+      <div id="fsStrip" class="fsStrip"></div>
+    </div>
+    <div class="fsHint">键盘: ← → / 空格 翻页, Esc 退出 | 自动滚动时可切换慢/中/快并继续缩放</div>
+  </div>
+
+  <script>
+    const listEl = document.getElementById('scoreList');
+    const viewerTitle = document.getElementById('viewerTitle');
+    const viewerBox = document.getElementById('viewerBox');
+    const uploadForm = document.getElementById('uploadForm');
+    const queryInput = document.getElementById('query');
+    const searchBtn = document.getElementById('searchBtn');
+
+    const dropzone = document.getElementById('dropzone');
+    const pickBtn = document.getElementById('pickBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const filePicker = document.getElementById('filePicker');
+    const fileListEl = document.getElementById('fileList');
+    const fsOverlay = document.getElementById('fsOverlay');
+    const fsStage = document.getElementById('fsStage');
+    const fsImage = document.getElementById('fsImage');
+    const fsPageInfo = document.getElementById('fsPageInfo');
+    const fsZoomInfo = document.getElementById('fsZoomInfo');
+    const fsPrevBtn = document.getElementById('fsPrevBtn');
+    const fsNextBtn = document.getElementById('fsNextBtn');
+    const fsScaleOutBtn = document.getElementById('fsScaleOutBtn');
+    const fsScaleInBtn = document.getElementById('fsScaleInBtn');
+    const fsAutoBtn = document.getElementById('fsAutoBtn');
+    const fsSpeedLabel = document.getElementById('fsSpeedLabel');
+    const fsSpeedRange = document.getElementById('fsSpeedRange');
+    const fsResetBtn = document.getElementById('fsResetBtn');
+    const fsExitBtn = document.getElementById('fsExitBtn');
+    const fsStrip = document.getElementById('fsStrip');
+
+    let currentId = null;
+    let selectedFiles = [];
+    let activeViewer = null;
+    let fsState = null;
+
+    function getExt(name) {
+      const idx = name.lastIndexOf('.');
+      return idx >= 0 ? name.slice(idx).toLowerCase() : '';
+    }
+
+    function validateFiles(files) {
+      if (!files.length) return '请先选择文件';
+      const imageExts = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+      const exts = files.map((f) => getExt(f.name));
+      if (exts.some((ext) => !imageExts.has(ext) && ext !== '.pdf')) return '仅支持 PDF/图片 文件';
+      const hasPdf = exts.includes('.pdf');
+      const hasImage = exts.some((ext) => imageExts.has(ext));
+      if (hasPdf && hasImage) return '请勿混传 PDF 与图片';
+      if (hasPdf && files.length !== 1) return 'PDF 仅支持单文件上传';
+      return null;
+    }
+
+    function renderFileList() {
+      fileListEl.innerHTML = '';
+      if (!selectedFiles.length) {
+        fileListEl.innerHTML = '<div class="hint">暂无待上传文件</div>';
+        return;
+      }
+
+      selectedFiles.forEach((file, index) => {
+        const row = document.createElement('div');
+        row.className = 'fileRow';
+        row.draggable = true;
+
+        const name = document.createElement('div');
+        name.className = 'rowName';
+        name.textContent = `${String(index + 1).padStart(3, '0')} | ${file.name}`;
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'mini';
+        del.textContent = '移除';
+        del.onclick = () => {
+          selectedFiles.splice(index, 1);
+          renderFileList();
+        };
+
+        row.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', String(index));
+        });
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          row.classList.add('dragOver');
+        });
+        row.addEventListener('dragleave', () => row.classList.remove('dragOver'));
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          row.classList.remove('dragOver');
+          const from = Number(e.dataTransfer.getData('text/plain'));
+          moveFile(from, index);
+        });
+
+        row.appendChild(name);
+        row.appendChild(del);
+        fileListEl.appendChild(row);
+      });
+    }
+
+    function moveFile(from, to) {
+      if (from < 0 || from >= selectedFiles.length) return;
+      if (to < 0 || to >= selectedFiles.length) return;
+      if (from === to) return;
+      const [f] = selectedFiles.splice(from, 1);
+      selectedFiles.splice(to, 0, f);
+      renderFileList();
+    }
+
+    function appendFiles(fileList) {
+      selectedFiles = selectedFiles.concat(Array.from(fileList));
+      renderFileList();
+    }
+
+    pickBtn.onclick = () => filePicker.click();
+    clearBtn.onclick = () => {
+      selectedFiles = [];
+      renderFileList();
+    };
+    filePicker.onchange = () => {
+      appendFiles(filePicker.files);
+      filePicker.value = '';
+    };
+
+    ['dragenter', 'dragover'].forEach((evt) => {
+      dropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('active');
+      });
+    });
+    ['dragleave', 'drop'].forEach((evt) => {
+      dropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('active');
+      });
+    });
+    dropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      if (dt && dt.files) appendFiles(dt.files);
+    });
+
+    async function fetchScores() {
+      const q = queryInput.value.trim();
+      const url = q ? `/api/scores?query=${encodeURIComponent(q)}` : '/api/scores';
+      const res = await fetch(url);
+      const data = await res.json();
+      renderList(data);
+      if (currentId && !data.find((x) => x.id === currentId)) {
+        currentId = null;
+        activeViewer = null;
+        viewerTitle.textContent = '请选择曲谱';
+        viewerBox.innerHTML = '<p class="empty">上传或点击左侧曲谱开始阅览。</p>';
+      }
+    }
+
+    function renderList(items) {
+      listEl.innerHTML = '';
+      if (!items.length) {
+        listEl.innerHTML = '<li>暂无曲谱</li>';
+        return;
+      }
+      for (const it of items) {
+        const li = document.createElement('li');
+        li.className = it.id === currentId ? 'active' : '';
+        const typeText = it.kind === 'pdf' ? 'PDF' : `图片 ${it.page_count} 页`;
+        li.innerHTML = `<strong>${it.title}</strong><div class="meta">${it.composer || '未知作曲家'} | ${it.tags.join(', ') || '无标签'} | ${typeText}</div>`;
+        li.addEventListener('click', () => openScore(it));
+        listEl.appendChild(li);
+      }
+    }
+
+    async function deleteScore(item) {
+      if (!confirm('确认删除这份曲谱？')) return;
+      await fetch(`/api/scores/${item.id}`, { method: 'DELETE' });
+      currentId = null;
+      activeViewer = null;
+      await fetchScores();
+      viewerTitle.textContent = '请选择曲谱';
+      viewerBox.innerHTML = '<p class="empty">上传或点击左侧曲谱开始阅览。</p>';
+    }
+
+    function bindViewerKeys(item, state) {
+      activeViewer = { item, state };
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (fsState && fsState.open) {
+        const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return;
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeFullscreen();
+          return;
+        }
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowLeft') e.preventDefault();
+        if (e.key === 'ArrowRight' || e.key === ' ') fsNextPage();
+        if (e.key === 'ArrowLeft') fsPrevPage();
+        return;
+      }
+      if (!activeViewer || activeViewer.item.kind !== 'images') return;
+      const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== ' ') return;
+
+      e.preventDefault();
+      if (e.key === 'ArrowRight' || e.key === ' ') activeViewer.state.next();
+      if (e.key === 'ArrowLeft') activeViewer.state.prev();
+    });
+
+    function updateFsTransform() {
+      if (!fsState) return;
+      if (fsState.autoMode) {
+        fsPageInfo.textContent = `第 ${fsState.page} / ${fsState.total} 页`;
+        fsZoomInfo.textContent = `${Math.round((fsState.autoScale || 1) * 100)}%`;
+        return;
+      }
+      fsImage.style.transform = `translate(${fsState.offsetX}px, ${fsState.offsetY}px) translate(-50%, -50%) scale(${fsState.zoom})`;
+      fsZoomInfo.textContent = `${Math.round(fsState.zoom * 100)}%`;
+      fsPageInfo.textContent = `第 ${fsState.page} / ${fsState.total} 页`;
+    }
+
+    function calcFitZoom() {
+      const stageW = fsStage.clientWidth || 1;
+      const stageH = fsStage.clientHeight || 1;
+      const imgW = fsImage.naturalWidth || 1;
+      const imgH = fsImage.naturalHeight || 1;
+      return Math.min(stageW / imgW, stageH / imgH);
+    }
+
+    function setAutoScale(scale) {
+      if (!fsState) return;
+      const prev = fsState.autoScale || 1;
+      const next = Math.min(2.5, Math.max(0.6, scale));
+      if (Math.abs(next - prev) < 0.001) return;
+      fsState.autoScale = next;
+      if (fsState.autoMode) {
+        const prevCenterRatio = (fsStage.scrollTop + fsStage.clientHeight * 0.5) / Math.max(1, fsStage.scrollHeight);
+        fsStrip.style.width = `${Math.round(next * 100)}%`;
+        requestAnimationFrame(() => {
+          if (!fsState || !fsState.autoMode) return;
+          rebuildStripMetrics();
+          const targetCenter = prevCenterRatio * fsStage.scrollHeight;
+          const targetTop = targetCenter - fsStage.clientHeight * 0.5;
+          fsStage.scrollTop = Math.max(0, targetTop);
+          fsState.autoScrollPos = fsStage.scrollTop;
+          fsState.autoLastTs = 0;
+        });
+      }
+      updateFsTransform();
+    }
+
+    function fitFsView() {
+      if (!fsState) return;
+      const fit = calcFitZoom();
+      fsState.fitZoom = fit;
+      fsState.minZoom = Math.max(0.05, fit * 0.35);
+      fsState.zoom = fit;
+      fsState.offsetX = 0;
+      fsState.offsetY = 0;
+      updateFsTransform();
+    }
+
+    function resetFsView() {
+      if (!fsState) return;
+      if (fsState.autoMode) {
+        setAutoScale(1);
+        return;
+      }
+      fitFsView();
+    }
+
+    function fsSetPage(page) {
+      if (!fsState) return;
+      if (page < 1 || page > fsState.total) return;
+      fsState.page = page;
+      if (fsState.autoMode) {
+        const target = fsStrip.querySelector(`[data-page="${page}"]`);
+        if (target) target.scrollIntoView({ block: 'start' });
+        if (fsState.onSetPage) fsState.onSetPage(page);
+        updateFsTransform();
+        return;
+      }
+      fsState.pendingFit = true;
+      fsImage.src = `/api/scores/${fsState.item.id}/pages/${page}`;
+      if (fsState.onSetPage) fsState.onSetPage(page);
+    }
+
+    function fsPrevPage() {
+      if (!fsState) return;
+      fsSetPage(fsState.page - 1);
+    }
+
+    function fsNextPage() {
+      if (!fsState) return;
+      fsSetPage(fsState.page + 1);
+    }
+
+    function openFullscreen(item, page, total, onSetPage) {
+      fsState = {
+        open: true,
+        item,
+        page,
+        total,
+        zoom: 1,
+        fitZoom: 1,
+        minZoom: 0.05,
+        offsetX: 0,
+        offsetY: 0,
+        pendingFit: true,
+        dragging: false,
+        dragMoved: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        baseOffsetX: 0,
+        baseOffsetY: 0,
+        autoMode: false,
+        autoRunning: false,
+        autoRafId: null,
+        autoLastTs: 0,
+        autoScrollPos: 0,
+        autoDragStartY: 0,
+        autoDragStartTop: 0,
+        lastPageSyncTs: 0,
+        pendingScrollSync: false,
+        pendingMetricsRebuild: false,
+        stripNodes: [],
+        stripCenters: [],
+        lastSyncedPage: page,
+        autoSpeed: 28,
+        autoSpeedValue: 50,
+        autoScale: 1,
+        onSetPage
+      };
+      fsStrip.innerHTML = '';
+      fsStrip.classList.remove('active');
+      fsImage.style.display = '';
+      fsStage.scrollTop = 0;
+      fsState.autoScrollPos = 0;
+      fsAutoBtn.textContent = '自动滚动: 关';
+      fsSpeedRange.value = '50';
+      setAutoSpeedBySlider(50);
+      setAutoScale(1);
+      fsImage.src = `/api/scores/${item.id}/pages/${page}`;
+      fsOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      updateFsTransform();
+      enterNativeFullscreen();
+    }
+
+    function closeFullscreen() {
+      stopAutoScroll();
+      fsState = null;
+      fsOverlay.classList.remove('open');
+      document.body.style.overflow = '';
+      exitNativeFullscreen();
+    }
+
+    async function ensureFsStripLoaded() {
+      if (!fsState) return;
+      if (fsStrip.children.length === fsState.total) return;
+      fsStrip.innerHTML = '';
+      for (let i = 1; i <= fsState.total; i += 1) {
+        const im = document.createElement('img');
+        im.src = `/api/scores/${fsState.item.id}/pages/${i}`;
+        im.alt = `page-${i}`;
+        im.setAttribute('data-page', String(i));
+        im.loading = 'eager';
+        im.addEventListener('load', () => {
+          scheduleRebuildStripMetrics();
+        });
+        fsStrip.appendChild(im);
+      }
+      fsState.stripNodes = Array.from(fsStrip.querySelectorAll('img[data-page]'));
+      rebuildStripMetrics();
+    }
+
+    function rebuildStripMetrics() {
+      if (!fsState || !fsState.autoMode) return;
+      const nodes = fsState.stripNodes || [];
+      fsState.stripCenters = nodes.map((node) => {
+        const top = node.offsetTop;
+        const mid = top + node.clientHeight * 0.5;
+        return {
+          page: Number(node.getAttribute('data-page') || '1'),
+          center: mid
+        };
+      });
+    }
+
+    function scheduleRebuildStripMetrics() {
+      if (!fsState || !fsState.autoMode) return;
+      if (fsState.pendingMetricsRebuild) return;
+      fsState.pendingMetricsRebuild = true;
+      requestAnimationFrame(() => {
+        if (!fsState) return;
+        fsState.pendingMetricsRebuild = false;
+        rebuildStripMetrics();
+      });
+    }
+
+    function setAutoSpeedBySlider(value) {
+      if (!fsState) return;
+      const v = Math.min(100, Math.max(1, Number(value) || 50));
+      fsState.autoSpeedValue = v;
+      // 1~100 map to 8~70 px/s
+      fsState.autoSpeed = 8 + (v - 1) * (62 / 99);
+      if (v <= 33) fsSpeedLabel.textContent = '速度: 慢';
+      else if (v <= 66) fsSpeedLabel.textContent = '速度: 中';
+      else fsSpeedLabel.textContent = '速度: 快';
+    }
+
+    function syncPageFromScroll() {
+      if (!fsState || !fsState.autoMode) return;
+      const center = fsStage.scrollTop + fsStage.clientHeight * 0.5;
+      let bestPage = fsState.page;
+      let bestDist = Number.POSITIVE_INFINITY;
+      const centers = fsState.stripCenters || [];
+      for (const item of centers) {
+        const dist = Math.abs(center - item.center);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPage = item.page;
+        }
+      }
+      if (bestPage !== fsState.page) {
+        fsState.page = bestPage;
+        if (fsState.onSetPage && fsState.lastSyncedPage !== bestPage) {
+          fsState.lastSyncedPage = bestPage;
+          fsState.onSetPage(bestPage);
+        }
+      }
+      updateFsTransform();
+    }
+
+    function autoScrollTick(ts) {
+      if (!fsState || !fsState.autoMode || !fsState.autoRunning) return;
+      if (!fsState.autoLastTs) fsState.autoLastTs = ts;
+      const dt = (ts - fsState.autoLastTs) / 1000;
+      fsState.autoLastTs = ts;
+      fsState.autoScrollPos += fsState.autoSpeed * dt;
+      fsStage.scrollTop = fsState.autoScrollPos;
+      if (!fsState.lastPageSyncTs || ts - fsState.lastPageSyncTs >= 120) {
+        fsState.lastPageSyncTs = ts;
+        syncPageFromScroll();
+      }
+
+      const hasScrollableContent = fsStage.scrollHeight > fsStage.clientHeight + 2;
+      const atBottom = fsStage.scrollTop + fsStage.clientHeight >= fsStage.scrollHeight - 1;
+      if (hasScrollableContent && atBottom) {
+        stopAutoScroll();
+        fsAutoBtn.textContent = '自动滚动: 关';
+        return;
+      }
+      fsState.autoRafId = requestAnimationFrame(autoScrollTick);
+    }
+
+    function startAutoScroll() {
+      if (!fsState || !fsState.autoMode || fsState.autoRunning) return;
+      fsState.autoRunning = true;
+      fsState.autoLastTs = 0;
+      fsState.lastPageSyncTs = 0;
+      fsState.autoScrollPos = fsStage.scrollTop;
+      fsAutoBtn.textContent = '自动滚动: 开';
+      fsState.autoRafId = requestAnimationFrame(autoScrollTick);
+    }
+
+    function stopAutoScroll() {
+      if (!fsState || !fsState.autoRunning) return;
+      fsState.autoRunning = false;
+      fsState.autoLastTs = 0;
+      if (fsState.autoRafId) cancelAnimationFrame(fsState.autoRafId);
+      fsState.autoRafId = null;
+    }
+
+    async function enableAutoMode() {
+      if (!fsState || fsState.autoMode) return;
+      await ensureFsStripLoaded();
+      fsState.autoMode = true;
+      fsImage.style.display = 'none';
+      fsStrip.classList.add('active');
+      fsStrip.style.width = `${Math.round((fsState.autoScale || 1) * 100)}%`;
+      fsStage.classList.remove('dragging');
+      fsStage.scrollTop = 0;
+      fsState.autoScrollPos = 0;
+      const target = fsStrip.querySelector(`[data-page="${fsState.page}"]`);
+      if (target) target.scrollIntoView({ block: 'start' });
+      scheduleRebuildStripMetrics();
+      updateFsTransform();
+    }
+
+    function disableAutoMode() {
+      if (!fsState || !fsState.autoMode) return;
+      stopAutoScroll();
+      fsState.autoMode = false;
+      fsAutoBtn.textContent = '自动滚动: 关';
+      fsStrip.classList.remove('active');
+      fsImage.style.display = '';
+      fsSetPage(fsState.page);
+    }
+
+    async function toggleAutoMode() {
+      if (!fsState) return;
+      if (!fsState.autoMode) {
+        await enableAutoMode();
+        startAutoScroll();
+        return;
+      }
+      disableAutoMode();
+    }
+
+    function enterNativeFullscreen() {
+      const el = fsOverlay;
+      if (!el) return;
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+        return;
+      }
+      if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    }
+
+    function exitNativeFullscreen() {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) return;
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+        return;
+      }
+      if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+
+    function renderPdfViewer(item) {
+      viewerBox.innerHTML = `
+        <div class="viewerShell">
+          <div class="viewerToolbar">
+            <div class="toolbarMain">
+              <span class="pageInfo">PDF 预览</span>
+            </div>
+            <div class="toolbarAux">
+              <button type="button" class="light" id="refreshBtn">刷新</button>
+              <button type="button" class="danger" id="deleteBtn">删除</button>
+            </div>
+          </div>
+          <div class="viewerStage">
+            <iframe src="/api/scores/${item.id}/pages/1#zoom=page-fit"></iframe>
+          </div>
+        </div>
+      `;
+      document.getElementById('refreshBtn').onclick = fetchScores;
+      document.getElementById('deleteBtn').onclick = () => deleteScore(item);
+      bindViewerKeys(item, null);
+    }
+
+    function renderImageViewer(item) {
+      let page = 1;
+      const total = item.page_count;
+
+      viewerBox.innerHTML = `
+        <div class="viewerShell">
+          <div class="viewerToolbar">
+            <div class="toolbarMain">
+              <button type="button" class="light" id="prevBtn">上一页</button>
+              <span class="pageInfo" id="pageInfo">第 1 / ${total} 页</span>
+              <button type="button" class="light" id="nextBtn">下一页</button>
+            </div>
+            <div class="toolbarAux">
+              <span class="kbdHint">键盘: ← → / 空格</span>
+              <button type="button" class="light" id="fullBtn">全屏</button>
+              <button type="button" class="light" id="refreshBtn">刷新</button>
+              <button type="button" class="danger" id="deleteBtn">删除</button>
+            </div>
+          </div>
+          <div class="viewerStage">
+            <img id="scoreImage" src="/api/scores/${item.id}/pages/1" alt="${item.title}" />
+          </div>
+        </div>
+      `;
+
+      const img = document.getElementById('scoreImage');
+      const pageInfo = document.getElementById('pageInfo');
+      const prev = () => {
+        if (page <= 1) return;
+        page -= 1;
+        img.src = `/api/scores/${item.id}/pages/${page}`;
+        pageInfo.textContent = `第 ${page} / ${total} 页`;
+      };
+      const next = () => {
+        if (page >= total) return;
+        page += 1;
+        img.src = `/api/scores/${item.id}/pages/${page}`;
+        pageInfo.textContent = `第 ${page} / ${total} 页`;
+      };
+      const setPage = (newPage) => {
+        if (newPage < 1 || newPage > total) return;
+        page = newPage;
+        img.src = `/api/scores/${item.id}/pages/${page}`;
+        pageInfo.textContent = `第 ${page} / ${total} 页`;
+      };
+
+      document.getElementById('prevBtn').onclick = prev;
+      document.getElementById('nextBtn').onclick = next;
+      document.getElementById('fullBtn').onclick = () => openFullscreen(item, page, total, setPage);
+      document.getElementById('refreshBtn').onclick = fetchScores;
+      document.getElementById('deleteBtn').onclick = () => deleteScore(item);
+      img.classList.add('clickable');
+      img.title = '点击进入全屏';
+      img.onclick = () => openFullscreen(item, page, total, setPage);
+      bindViewerKeys(item, { prev, next });
+    }
+
+    function openScore(item) {
+      currentId = item.id;
+      viewerTitle.textContent = `${item.title}${item.composer ? ' - ' + item.composer : ''}`;
+
+      if (item.kind === 'pdf') {
+        renderPdfViewer(item);
+        return;
+      }
+      renderImageViewer(item);
+    }
+
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = validateFiles(selectedFiles);
+      if (err) {
+        alert(err);
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('title', uploadForm.elements.title.value);
+      fd.append('composer', uploadForm.elements.composer.value);
+      fd.append('tags', uploadForm.elements.tags.value);
+      selectedFiles.forEach((f) => fd.append('files', f, f.name));
+
+      const res = await fetch('/api/scores', { method: 'POST', body: fd });
+      if (!res.ok) {
+        let msg = '上传失败，请确认文件类型与字段';
+        try {
+          const data = await res.json();
+          if (data.detail) msg = data.detail;
+        } catch (_) {}
+        alert(msg);
+        return;
+      }
+
+      uploadForm.reset();
+      selectedFiles = [];
+      renderFileList();
+      await fetchScores();
+    });
+
+    searchBtn.addEventListener('click', fetchScores);
+    queryInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') fetchScores();
+    });
+
+    renderFileList();
+    fetchScores();
+
+    fsExitBtn.onclick = closeFullscreen;
+    fsPrevBtn.onclick = fsPrevPage;
+    fsNextBtn.onclick = fsNextPage;
+    fsResetBtn.onclick = resetFsView;
+    fsOverlay.addEventListener('click', (e) => {
+      if (e.target === fsOverlay) closeFullscreen();
+    });
+    function handleFsExit() {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement && fsState && fsState.open) {
+        stopAutoScroll();
+        fsState = null;
+        fsOverlay.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
+    document.addEventListener('fullscreenchange', handleFsExit);
+    document.addEventListener('webkitfullscreenchange', handleFsExit);
+    fsStage.addEventListener('wheel', (e) => {
+      if (!fsState || !fsState.open) return;
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      if (fsState.autoMode) {
+        setAutoScale((fsState.autoScale || 1) * factor);
+      } else {
+        fsState.zoom = Math.min(6, Math.max(fsState.minZoom || 0.05, fsState.zoom * factor));
+        updateFsTransform();
+      }
+    }, { passive: false });
+    fsStage.addEventListener('mousedown', (e) => {
+      if (!fsState || e.button !== 0) return;
+      if (fsState.autoMode) {
+        fsState.dragging = true;
+        fsState.dragMoved = false;
+        fsState.autoDragStartY = e.clientY;
+        fsState.autoDragStartTop = fsStage.scrollTop;
+        fsStage.classList.add('dragging');
+        return;
+      }
+      fsState.dragging = true;
+      fsState.dragMoved = false;
+      fsState.dragStartX = e.clientX;
+      fsState.dragStartY = e.clientY;
+      fsState.baseOffsetX = fsState.offsetX;
+      fsState.baseOffsetY = fsState.offsetY;
+      fsStage.classList.add('dragging');
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!fsState || !fsState.dragging) return;
+      if (fsState.autoMode) {
+        const dy = e.clientY - fsState.autoDragStartY;
+        if (Math.abs(dy) > 2) fsState.dragMoved = true;
+        fsStage.scrollTop = Math.max(0, fsState.autoDragStartTop - dy);
+        fsState.autoScrollPos = fsStage.scrollTop;
+        fsState.autoLastTs = 0;
+        if (!fsState.pendingScrollSync) {
+          fsState.pendingScrollSync = true;
+          requestAnimationFrame(() => {
+            if (!fsState) return;
+            fsState.pendingScrollSync = false;
+            syncPageFromScroll();
+          });
+        }
+        return;
+      }
+      const dx = e.clientX - fsState.dragStartX;
+      const dy = e.clientY - fsState.dragStartY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) fsState.dragMoved = true;
+      fsState.offsetX = fsState.baseOffsetX + dx;
+      fsState.offsetY = fsState.baseOffsetY + dy;
+      updateFsTransform();
+    });
+    window.addEventListener('mouseup', () => {
+      if (!fsState || !fsState.dragging) return;
+      fsState.dragging = false;
+      fsStage.classList.remove('dragging');
+    });
+    fsStage.addEventListener('click', (e) => {
+      if (!fsState || fsState.autoMode || fsState.dragMoved) return;
+      const rect = fsStage.getBoundingClientRect();
+      const isLeftHalf = e.clientX < rect.left + rect.width / 2;
+      if (isLeftHalf) fsPrevPage();
+      else fsNextPage();
+    });
+    fsImage.addEventListener('load', () => {
+      if (!fsState || !fsState.open) return;
+      if (fsState.pendingFit) {
+        fsState.pendingFit = false;
+        fitFsView();
+        return;
+      }
+      updateFsTransform();
+    });
+    window.addEventListener('resize', () => {
+      if (!fsState || !fsState.open) return;
+      if (fsState.autoMode) {
+        scheduleRebuildStripMetrics();
+        return;
+      }
+      fitFsView();
+    });
+    fsStage.addEventListener('scroll', () => {
+      if (!fsState || !fsState.autoMode) return;
+      fsState.autoScrollPos = fsStage.scrollTop;
+      if (fsState.pendingScrollSync) return;
+      fsState.pendingScrollSync = true;
+      requestAnimationFrame(() => {
+        if (!fsState) return;
+        fsState.pendingScrollSync = false;
+        syncPageFromScroll();
+      });
+    });
+    fsAutoBtn.onclick = toggleAutoMode;
+    fsSpeedRange.oninput = () => {
+      if (!fsState) return;
+      setAutoSpeedBySlider(fsSpeedRange.value);
+    };
+    fsScaleOutBtn.onclick = () => {
+      if (!fsState) return;
+      if (fsState.autoMode) {
+        setAutoScale((fsState.autoScale || 1) / 1.1);
+      } else {
+        fsState.zoom = Math.max(fsState.minZoom || 0.05, fsState.zoom / 1.1);
+        updateFsTransform();
+      }
+    };
+    fsScaleInBtn.onclick = () => {
+      if (!fsState) return;
+      if (fsState.autoMode) {
+        setAutoScale((fsState.autoScale || 1) * 1.1);
+      } else {
+        fsState.zoom = Math.min(6, fsState.zoom * 1.1);
+        updateFsTransform();
+      }
+    };
+  </script>
+</body>
+</html>
